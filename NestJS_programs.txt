@@ -1,0 +1,162 @@
+Program : NestJS CRUD
+=====================
+1. Setup NestJS Project
+  npm i -g @nestjs/cli
+  nest new nestjs-mongoose-crud
+  
+2. Install Mongoose and Related Dependencies
+  npm install @nestjs/mongoose mongoose
+  npm install --save-dev @types/mongoose
+  
+3. Setup MongoDB Connection
+  // src/app.module.ts
+	import { Module } from '@nestjs/common';
+	import { MongooseModule } from '@nestjs/mongoose';
+	import { UserModule } from './user/user.module';
+
+	@Module({
+	  imports: [
+		MongooseModule.forRoot('mongodb://localhost/nestjs-mongoose-crud'), // Connect to MongoDB
+		UserModule,
+	  ],
+	})
+	export class AppModule {}
+	
+4. Generate User Module, Controller, and Service
+  nest g module user
+  nest g controller user
+  nest g service user
+  
+5. Define User Schema
+  // src/user/schemas/user.schema.ts
+	import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+	import { Document } from 'mongoose';
+
+	export type UserDocument = User & Document;
+
+	@Schema()
+	export class User {
+	  @Prop({ required: true })
+	  name: string;
+
+	  @Prop({ required: true, unique: true })
+	  email: string;
+
+	  @Prop()
+	  age: number;
+	}
+
+	export const UserSchema = SchemaFactory.createForClass(User);
+
+6. date User Module to Include Mongoose
+  // src/user/user.module.ts
+	import { Module } from '@nestjs/common';
+	import { MongooseModule } from '@nestjs/mongoose';
+	import { UserController } from './user.controller';
+	import { UserService } from './user.service';
+	import { User, UserSchema } from './schemas/user.schema';
+
+	@Module({
+	  imports: [MongooseModule.forFeature([{ name: User.name, schema: UserSchema }])],
+	  controllers: [UserController],
+	  providers: [UserService],
+	})
+	export class UserModule {}
+	
+7. Implement User Service
+	import { Injectable } from '@nestjs/common';
+	import { InjectModel } from '@nestjs/mongoose';
+	import { Model } from 'mongoose';
+	import { User, UserDocument } from './schemas/user.schema';
+	import { CreateUserDto } from './dto/create-user.dto';
+
+	@Injectable()
+	export class UserService {
+	  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
+
+	  // Create a new user
+	  async create(createUserDto: CreateUserDto): Promise<User> {
+		const createdUser = new this.userModel(createUserDto);
+		return createdUser.save();
+	  }
+
+	  // Find all users
+	  async findAll(): Promise<User[]> {
+		return this.userModel.find().exec();
+	  }
+
+	  // Find a user by ID
+	  async findOne(id: string): Promise<User> {
+		return this.userModel.findById(id).exec();
+	  }
+
+	  // Update a user by ID
+	  async update(id: string, createUserDto: CreateUserDto): Promise<User> {
+		return this.userModel.findByIdAndUpdate(id, createUserDto, { new: true }).exec();
+	  }
+
+	  // Delete a user by ID
+	  async delete(id: string): Promise<any> {
+		return this.userModel.findByIdAndRemove(id).exec();
+	  }
+	}
+	
+8. Implement User Controller
+	// src/user/user.controller.ts
+import { Controller, Get, Post, Body, Param, Put, Delete } from '@nestjs/common';
+import { UserService } from './user.service';
+import { CreateUserDto } from './dto/create-user.dto';
+import { User } from './schemas/user.schema';
+
+@Controller('users')
+export class UserController {
+  constructor(private readonly userService: UserService) {}
+
+  // Create a new user
+  @Post()
+  async create(@Body() createUserDto: CreateUserDto): Promise<User> {
+    return this.userService.create(createUserDto);
+  }
+
+  // Get all users
+  @Get()
+  async findAll(): Promise<User[]> {
+    return this.userService.findAll();
+  }
+
+  // Get a user by ID
+  @Get(':id')
+  async findOne(@Param('id') id: string): Promise<User> {
+    return this.userService.findOne(id);
+  }
+
+  // Update a user by ID
+  @Put(':id')
+  async update(@Param('id') id: string, @Body() createUserDto: CreateUserDto): Promise<User> {
+    return this.userService.update(id, createUserDto);
+  }
+
+  // Delete a user by ID
+  @Delete(':id')
+  async delete(@Param('id') id: string): Promise<any> {
+    return this.userService.delete(id);
+  }
+}
+
+
+9. Create DTO for User
+	export class CreateUserDto {
+	  readonly name: string;
+	  readonly email: string;
+	  readonly age: number;
+	}
+
+10. Run the Application
+   npm run start
+
+
+
+
+
+
+
